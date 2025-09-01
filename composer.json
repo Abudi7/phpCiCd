@@ -3,7 +3,7 @@
     "description": "A simple PHP project with Docker and Composer",
     "type": "project",
     "require": {
-      "php": "^8.2"
+      "php": "^8.4"
     },
     "autoload": {
       "psr-4": {
