@@ -3,6 +3,6 @@ namespace App;
 
 class Hello {
     public static function greet(): string {
-        return "Hello, Sophia!";
+        return "Hello, Abudi!";
     }
 }
