@@ -22,9 +22,12 @@
       "squizlabs/php_codesniffer": "^3.10"
     },
     "scripts": {
-  "test": "vendor/bin/phpunit --colors=always",
-  "lint": "vendor/bin/phpcs --standard=PSR12 src public",
-  "stan": "vendor/bin/phpstan analyse src --level=max"
-}
+      "test": "vendor/bin/phpunit --colors=always",
+      "lint": "vendor/bin/phpcs --standard=PSR12 src public",
+      "stan": "vendor/bin/phpstan analyse src --level=max"
+    },
+
+"config": { "platform": { "php": "8.4.0" } }
+
 
   }
