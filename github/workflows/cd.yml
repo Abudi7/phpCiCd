@@ -1,0 +1,30 @@
+name: php-cd
+
+on:
+  push:
+    tags:
+      - 'v*'   # أي Tag يبدأ بـ v (مثلاً v1.0.0) يطلق النشر
+  workflow_dispatch: {}  # تشغيل يدوي
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy on server
+        run: |
+          ssh ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_HOST }} '
+            cd /opt/hello-php && \
+            docker compose -f docker-compose.prod.yml pull && \
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans && \
+            docker image prune -f
+          '
