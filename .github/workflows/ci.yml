@@ -7,27 +7,47 @@ on:
     branches: [ main ]
   workflow_dispatch: {}
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
   quality-and-tests:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      - name: Setup PHP
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP 8.4
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           tools: composer, phpunit
-          extensions: mbstring, intl, pcov  
-          coverage: pcov
 
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
+      # 👇 تشخيص سريع للتأكد أن الملفات بمكانها الصحيح
+      - name: Show workspace contents
+        run: |
+          pwd
+          ls -la
+          echo "---- composer.json ----"
+          test -f composer.json && sed -n '1,120p' composer.json || echo "composer.json NOT FOUND"
+
+      - name: Validate composer.json
+        run: composer validate --ansi
+
+      - name: Get composer cache dir
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      # 👇 تثبيت مفصّل يُظهر أي خطأ بوضوح
+      - name: Install dependencies (verbose)
+        run: composer install -vvv --no-interaction --prefer-dist
 
       - name: Lint (PHPCS)
         run: composer run lint
@@ -37,37 +57,17 @@ jobs:
 
       - name: Unit tests (PHPUnit)
         run: composer run test
-
-  docker-image:
-    needs: quality-and-tests
-    runs-on: ubuntu-latest
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}-web
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+        env:
+          XDEBUG_MODE: coverage
+          # XDEBUG_MODE: off  # لو حبيت تعطل XDebug لتسريع الاختبارات بدون تغطية
+      #👆
+      - name: Upload coverage to Codecov
+        if: success() && github.event_name != 'pull_request'
+        uses: codecov/codecov-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha
-            type=raw,value=latest
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
